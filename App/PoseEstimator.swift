@@ -5,7 +5,7 @@ import Vision
 /// Apple's on-device body tracker, turned into the joints the analyzer uses.
 final class PoseEstimator {
     private let request = VNDetectHumanBodyPoseRequest()
-    private static let map: [(Joint, VNHumanBodyPoseObservation.JointName)] = [
+    private static let map: [(DrillCore.Joint, VNHumanBodyPoseObservation.JointName)] = [
         (.nose, .nose), (.lShoulder, .leftShoulder), (.rShoulder, .rightShoulder), (.lElbow, .leftElbow), (.rElbow, .rightElbow),
         (.lWrist, .leftWrist), (.rWrist, .rightWrist), (.lHip, .leftHip), (.rHip, .rightHip), (.lKnee, .leftKnee), (.rKnee, .rightKnee),
         (.lAnkle, .leftAnkle), (.rAnkle, .rightAnkle),
@@ -19,7 +19,7 @@ final class PoseEstimator {
         var best: (score: Float, joints: [Pt])?
         for person in people {
             guard let pts = try? person.recognizedPoints(.all) else { continue }
-            var joints = [Pt](repeating: Pt(0, 0, 0), count: Joint.allCases.count)
+            var joints = [Pt](repeating: Pt(0, 0, 0), count: DrillCore.Joint.allCases.count)
             var score: Float = 0
             for (j, name) in Self.map {
                 if let p = pts[name] {
