@@ -3,12 +3,23 @@ import AudioToolbox
 import DrillCore
 import SwiftUI
 
+/// What the player says a set is. Saved with the set and with the debug files, so the tracking can be checked against something known:
+/// the number of reps planned, and sets done differently on purpose (the numbers should move the right way).
+struct SetLabel: Codable, Equatable {
+    var side: String            // "backhand" or "forehand"
+    var plannedReps: Int        // 0 = not counted
+    var style: String           // "normal", "arm up late on purpose", "standing tall on purpose"
+    var swingDirection: String  // "away" from the phone (back-wall view) or "across" its view (side-wall view)
+    var racketInHand: Bool
+}
+
 struct Session: Codable, Identifiable {
     var id = UUID()
     var date: Date
     var rightHanded: Bool
     var reps: [RepStats]
     var summary: SessionSummary
+    var label: SetLabel?
 }
 
 /// Saved sessions (Documents/sessions.json).
@@ -37,6 +48,13 @@ final class DrillModel: ObservableObject {
     @Published var frontCamera: Bool = UserDefaults.standard.bool(forKey: "frontCamera") { didSet { UserDefaults.standard.set(frontCamera, forKey: "frontCamera") } }
     @Published var debugRecording: Bool = (UserDefaults.standard.object(forKey: "debugRecording") as? Bool) ?? true { didSet { UserDefaults.standard.set(debugRecording, forKey: "debugRecording") } }
     @Published var lastDebugFolder: String?
+    // labels for the set (see SetLabel)
+    @Published var side: String = UserDefaults.standard.string(forKey: "side") ?? "backhand" { didSet { UserDefaults.standard.set(side, forKey: "side") } }
+    @Published var plannedReps: Int = (UserDefaults.standard.object(forKey: "plannedReps") as? Int) ?? 10 { didSet { UserDefaults.standard.set(plannedReps, forKey: "plannedReps") } }
+    @Published var style: String = "normal"
+    @Published var swingDirection: String = UserDefaults.standard.string(forKey: "swingDirection") ?? "away" { didSet { UserDefaults.standard.set(swingDirection, forKey: "swingDirection") } }
+    @Published var racketInHand: Bool = UserDefaults.standard.bool(forKey: "racketInHand") { didSet { UserDefaults.standard.set(racketInHand, forKey: "racketInHand") } }
+    @Published var lastLabel: SetLabel?
 
     let camera = Camera()
     private let estimator = PoseEstimator()
@@ -45,6 +63,7 @@ final class DrillModel: ObservableObject {
     private let speech = AVSpeechSynthesizer()
     private var active = false                   // touched on the camera queue only
     private var recording = false
+    private var label: SetLabel?
 
     init() {
         analyzer.onEvent = { [weak self] event in
@@ -87,6 +106,7 @@ final class DrillModel: ObservableObject {
         var c = AnalyzerConfig(); c.rightHanded = rightHanded
         analyzer.config = c; analyzer.reset()
         repCount = 0; lastRep = nil; summary = nil
+        label = SetLabel(side: side, plannedReps: plannedReps, style: style, swingDirection: swingDirection, racketInHand: racketInHand)
         recording = debugRecording
         if recording { recorder.begin() }
         active = true; running = true
@@ -97,9 +117,10 @@ final class DrillModel: ObservableObject {
         active = false; running = false
         UIApplication.shared.isIdleTimerDisabled = false
         let reps = analyzer.reps
-        if recording { lastDebugFolder = recorder.folder?.lastPathComponent; recorder.end(reps: reps, config: analyzer.config) }
+        if recording { lastDebugFolder = recorder.folder?.lastPathComponent; recorder.end(reps: reps, config: analyzer.config, label: label) }
         let s = SessionSummary.from(reps)
+        lastLabel = label
         summary = s
-        if !reps.isEmpty { store.add(Session(date: Date(), rightHanded: rightHanded, reps: reps, summary: s)) }
+        if !reps.isEmpty { store.add(Session(date: Date(), rightHanded: rightHanded, reps: reps, summary: s, label: label)) }
     }
 }

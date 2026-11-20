@@ -79,6 +79,23 @@ struct DrillView: View {
                             Button { model.flipCamera() } label: { Image(systemName: "camera.rotate").font(.title2) }
                         }
                         Toggle("Save debug video and skeleton", isOn: $model.debugRecording).font(.subheadline)
+                        // what this set is, so the tracking can be checked against it
+                        Picker("Side", selection: $model.side) { Text("Backhand").tag("backhand"); Text("Forehand").tag("forehand") }.pickerStyle(.segmented)
+                        Stepper("Planned reps: \(model.plannedReps)", value: $model.plannedReps, in: 0...40).font(.subheadline)
+                        HStack {
+                            Picker("How", selection: $model.style) {
+                                Text("Normal swings").tag("normal")
+                                Text("Arm up late on purpose").tag("arm up late on purpose")
+                                Text("Standing tall on purpose").tag("standing tall on purpose")
+                            }
+                            Spacer()
+                            Picker("Phone", selection: $model.swingDirection) {
+                                Text("Swing away from phone").tag("away")
+                                Text("Swing across phone").tag("across")
+                            }
+                        }
+                        .pickerStyle(.menu).tint(.orange)
+                        Toggle("Racket in hand", isOn: $model.racketInHand).font(.subheadline)
                     }
                     Button(model.running ? "Stop" : "Start set") { if model.running { model.stop(store: store) } else { model.start() } }
                         .font(.title2.bold()).frame(maxWidth: .infinity).padding(.vertical, 12)
@@ -89,20 +106,21 @@ struct DrillView: View {
         }
         .onAppear { model.startCamera() }
         .sheet(isPresented: Binding(get: { model.summary != nil }, set: { if !$0 { model.summary = nil } })) {
-            if let s = model.summary { SummaryView(summary: s, debugFolder: model.lastDebugFolder) }
+            if let s = model.summary { SummaryView(summary: s, planned: model.lastLabel?.plannedReps ?? 0, debugFolder: model.lastDebugFolder) }
         }
     }
 }
 
 struct SummaryView: View {
     let summary: SessionSummary
+    let planned: Int
     let debugFolder: String?
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             List {
                 Section("This set") {
-                    row("Reps", "\(summary.reps)", nil)
+                    row("Reps", "\(summary.reps)", planned > 0 ? "you planned \(planned)" : nil)
                     row("Racket arm up before the hit", "\(fmt(summary.lead)) s", "pros \(fmt(ProRange.lead.lowerBound))–\(fmt(ProRange.lead.upperBound)) s (provisional)")
                     row("How much that varies", "± \(fmt(summary.leadSpread)) s", "smaller is better")
                     row("Elbow at the top", "\(fmt(summary.elbowTop, 0))°", "pros \(fmt(ProRange.elbowTop.lowerBound, 0))–\(fmt(ProRange.elbowTop.upperBound, 0))° (provisional)")

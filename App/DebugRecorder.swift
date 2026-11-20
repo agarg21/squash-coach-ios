@@ -1,7 +1,7 @@
 import AVFoundation
 import DrillCore
 
-/// Debug mode: saves the video the phone saw, the skeleton it found on every frame, and the reps it counted,
+/// Debug mode: saves the video the phone saw, the skeleton it found on every frame, the reps it counted, and what the player said the set was,
 /// into Documents/debug/<time>/ (visible in the Files app under "Squash Coach") so the vision can be checked offline.
 final class DebugRecorder {
     private var writer: AVAssetWriter?
@@ -40,11 +40,12 @@ final class DebugRecorder {
         if let p = pose, let data = try? encoder.encode(p) { poses?.write(data); poses?.write(Data("\n".utf8)) }
     }
 
-    func end(reps: [RepStats], config: AnalyzerConfig) {
+    func end(reps: [RepStats], config: AnalyzerConfig, label: SetLabel?) {
         guard let dir = folder else { return }
         try? poses?.close(); poses = nil
         if let data = try? encoder.encode(reps) { try? data.write(to: dir.appendingPathComponent("reps.json")) }
         if let data = try? encoder.encode(config) { try? data.write(to: dir.appendingPathComponent("config.json")) }
+        if let l = label, let data = try? encoder.encode(l) { try? data.write(to: dir.appendingPathComponent("label.json")) }
         input?.markAsFinished()
         let w = writer
         writer = nil; input = nil; folder = nil
