@@ -1,0 +1,36 @@
+name: SquashCoach
+options:
+  bundleIdPrefix: com.agarg21
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  DrillCore:
+    path: .
+targets:
+  SquashCoach:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: DrillCore
+        product: DrillCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Squash Coach
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        NSCameraUsageDescription: The camera watches your swing and measures it on this phone. Video is saved only when debug recording is on.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agarg21.squashcoach
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
