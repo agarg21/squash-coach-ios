@@ -8,14 +8,14 @@ on:
 jobs:
   core:
     name: Core logic tests
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: swift test
 
   app:
     name: Build the app (no signing)
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
       - run: brew install xcodegen
@@ -30,7 +30,7 @@ jobs:
     needs: [core, app]
     # runs only once the repository variable TESTFLIGHT is set to "on" (after the Apple secrets below have been added)
     if: github.ref == 'refs/heads/main' && vars.TESTFLIGHT == 'on'
-    runs-on: macos-15
+    runs-on: macos-26
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
