@@ -25,9 +25,41 @@ jobs:
           set -o pipefail
           xcodebuild -project SquashCoach.xcodeproj -scheme SquashCoach -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error|warning: unused|BUILD|\*\*" | tail -80
 
+  ui:
+    name: Screen tests in the simulator
+    runs-on: macos-26
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen && xcodegen generate
+      - name: Walk through a set in an iPhone simulator (demo mode)
+        run: |
+          set -o pipefail
+          UDID=$(python3 ci/pick_sim.py)
+          xcodebuild test -project SquashCoach.xcodeproj -scheme SquashCoach -destination "id=$UDID" -resultBundlePath "$RUNNER_TEMP/ui.xcresult" CODE_SIGNING_ALLOWED=NO 2>&1 \
+            | grep -E "error|Test Case|Test Suite|TEST|\*\*|failed|XCTAssert" | tail -80
+      - name: Collect the screenshots
+        if: always()
+        run: |
+          mkdir -p shots
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ui.xcresult" --output-path shots || true
+          ls -la shots | head -30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: shots
+      - name: Publish the screenshots to the ci-screenshots branch
+        if: always()
+        run: |
+          cd shots && git init -q -b ci-screenshots . && git add -A
+          git -c user.name="ci" -c user.email="ci@users.noreply.github.com" commit -qm "Screenshots from run $GITHUB_RUN_NUMBER ($GITHUB_SHA)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-screenshots
+
   testflight:
     name: Sign and send to TestFlight
-    needs: [core, app]
+    needs: [core, app, ui]
     # runs only once the repository variable TESTFLIGHT is set to "on" (after the Apple secrets below have been added)
     if: github.ref == 'refs/heads/main' && vars.TESTFLIGHT == 'on'
     runs-on: macos-26

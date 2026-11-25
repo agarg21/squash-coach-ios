@@ -4,13 +4,14 @@ import SwiftUI
 
 @main
 struct SquashCoachApp: App {
-    @StateObject private var store = Store()
+    @StateObject private var store = Store(demo: AppMode.demo)
     var body: some Scene {
         WindowGroup {
             TabView {
                 DrillView().tabItem { Label("Drill", systemImage: "figure.racquetball") }
                 HistoryView().tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
             }
+            .tint(.orange)
             .environmentObject(store)
         }
     }
@@ -50,93 +51,188 @@ struct SkeletonOverlay: View {
 struct DrillView: View {
     @EnvironmentObject var store: Store
     @StateObject private var model = DrillModel()
+    @State private var showDetails = false
 
     var body: some View {
         ZStack {
-            CameraPreview(session: model.camera.session).ignoresSafeArea(edges: .top)
+            Color.black.ignoresSafeArea(edges: .top)
+            if !AppMode.demo { CameraPreview(session: model.camera.session).ignoresSafeArea(edges: .top) }
             SkeletonOverlay(joints: model.joints, mirrored: model.frontCamera).ignoresSafeArea(edges: .top)
-            VStack {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading) {
-                        Text("\(model.repCount)").font(.system(size: 72, weight: .bold, design: .rounded)).monospacedDigit()
-                        Text("reps").font(.headline)
-                    }
-                    Spacer()
-                    if let r = model.lastRep {
-                        VStack(alignment: .trailing) {
-                            Text("\(fmt(r.lead)) s").font(.system(size: 36, weight: .bold, design: .rounded)).monospacedDigit()
-                                .foregroundStyle(r.lead >= ProRange.lead.lowerBound ? Color.green : Color.orange)
-                            Text("racket arm up before the hit").font(.caption)
-                        }
-                    }
-                }
-                .padding().background(.black.opacity(0.45)).foregroundStyle(.white)
+            VStack(spacing: 12) {
+                if model.running { runningHeader } else { readyHeader }
                 Spacer()
-                VStack(spacing: 10) {
-                    if !model.running {
-                        HStack {
-                            Picker("Hand", selection: $model.rightHanded) { Text("Right-handed").tag(true); Text("Left-handed").tag(false) }.pickerStyle(.segmented)
-                            Button { model.flipCamera() } label: { Image(systemName: "camera.rotate").font(.title2) }
-                        }
-                        Toggle("Save debug video and skeleton", isOn: $model.debugRecording).font(.subheadline)
-                        // what this set is, so the tracking can be checked against it
-                        Picker("Side", selection: $model.side) { Text("Backhand").tag("backhand"); Text("Forehand").tag("forehand") }.pickerStyle(.segmented)
-                        Stepper("Planned reps: \(model.plannedReps)", value: $model.plannedReps, in: 0...40).font(.subheadline)
-                        HStack {
-                            Picker("How", selection: $model.style) {
-                                Text("Normal swings").tag("normal")
-                                Text("Arm up late on purpose").tag("arm up late on purpose")
-                                Text("Standing tall on purpose").tag("standing tall on purpose")
-                            }
-                            Spacer()
-                            Picker("Phone", selection: $model.swingDirection) {
-                                Text("Swing away from phone").tag("away")
-                                Text("Swing across phone").tag("across")
-                            }
-                        }
-                        .pickerStyle(.menu).tint(.orange)
-                        Toggle("Racket in hand", isOn: $model.racketInHand).font(.subheadline)
-                    }
-                    Button(model.running ? "Stop" : "Start set") { if model.running { model.stop(store: store) } else { model.start() } }
-                        .font(.title2.bold()).frame(maxWidth: .infinity).padding(.vertical, 12)
-                        .background(model.running ? Color.red : Color.orange).foregroundStyle(.white).clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                .padding().background(.black.opacity(0.55)).foregroundStyle(.white)
+                if model.running { stopButton } else { readyCard }
             }
+            .padding()
         }
         .onAppear { model.startCamera() }
+        .sheet(isPresented: $showDetails) { SetDetailsView(model: model) }
         .sheet(isPresented: Binding(get: { model.summary != nil }, set: { if !$0 { model.summary = nil } })) {
-            if let s = model.summary { SummaryView(summary: s, planned: model.lastLabel?.plannedReps ?? 0, debugFolder: model.lastDebugFolder) }
+            if let s = model.summary { SummaryView(summary: s, label: model.lastLabel, debugFolder: model.lastDebugFolder) }
+        }
+    }
+
+    // Before a set: one line saying whether the phone can see the whole body.
+    private var readyHeader: some View {
+        Label(model.bodyInView ? "Whole body in view" : "Step back until I can see you head to feet",
+              systemImage: model.bodyInView ? "checkmark.circle.fill" : "figure.stand")
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(model.bodyInView ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
+            .accessibilityIdentifier("bodyStatus")
+    }
+
+    // During a set: the count, and the last rep's number.
+    private var runningHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(model.repCount)").font(.system(size: 84, weight: .bold, design: .rounded)).monospacedDigit()
+                .accessibilityIdentifier("repCount")
+            Text(model.plannedReps > 0 ? "of \(model.plannedReps) reps" : "reps").font(.title3.weight(.medium)).opacity(0.85)
+            Spacer()
+            if let r = model.lastRep {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("\(fmt(r.lead)) s").font(.system(size: 34, weight: .bold, design: .rounded)).monospacedDigit()
+                        .foregroundStyle(r.lead >= ProRange.lead.lowerBound ? Color.green : Color.orange)
+                    Text("arm up before the hit").font(.caption)
+                }
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 18).padding(.vertical, 10)
+        .background(Color.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 22))
+    }
+
+    private var stopButton: some View {
+        Button { model.stop(store: store) } label: {
+            Text("Stop").font(.title2.bold()).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                .background(Color.red, in: RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("stopSet")
+    }
+
+    private var setTitle: String {
+        let side = model.side == "forehand" ? "Forehand" : "Backhand"
+        return model.plannedReps > 0 ? "\(side) · \(model.plannedReps) reps" : side
+    }
+
+    private var setSubtitle: String {
+        let how: String = model.style == "normal" ? "Normal swings" : model.style.prefix(1).uppercased() + String(model.style.dropFirst())
+        var parts: [String] = [how]
+        parts.append(model.swingDirection == "across" ? "swing across the phone" : "swing away from the phone")
+        if model.racketInHand { parts.append("racket in hand") }
+        return parts.joined(separator: " · ")
+    }
+
+    // Before a set: what the set is (tap to change), and the start button.
+    private var readyCard: some View {
+        VStack(spacing: 12) {
+            Button { showDetails = true } label: {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(setTitle).font(.headline)
+                        Text(setSubtitle).font(.caption).opacity(0.8).multilineTextAlignment(.leading)
+                    }
+                    Spacer()
+                    Image(systemName: "slider.horizontal.3")
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16).padding(.vertical, 12)
+                .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("setDetails")
+            Button { model.start() } label: {
+                Text("Start set").font(.title2.bold()).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                    .background(Color.orange, in: RoundedRectangle(cornerRadius: 16))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("startSet")
+        }
+        .padding(14)
+        .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 24))
+    }
+}
+
+/// Everything adjustable, kept off the main screen: what this set is, and how the phone is set up.
+struct SetDetailsView: View {
+    @ObservedObject var model: DrillModel
+    @Environment(\.dismiss) private var dismiss
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Side", selection: $model.side) { Text("Backhand").tag("backhand"); Text("Forehand").tag("forehand") }.pickerStyle(.segmented)
+                    Stepper("Planned reps: \(model.plannedReps)", value: $model.plannedReps, in: 0...40)
+                    Picker("How", selection: $model.style) {
+                        Text("Normal swings").tag("normal")
+                        Text("Arm up late on purpose").tag("arm up late on purpose")
+                        Text("Standing tall on purpose").tag("standing tall on purpose")
+                    }
+                    Picker("Swing goes", selection: $model.swingDirection) {
+                        Text("Away from the phone").tag("away")
+                        Text("Across the phone").tag("across")
+                    }
+                    Toggle("Racket in hand", isOn: $model.racketInHand)
+                } header: { Text("This set") } footer: { Text("Saved with the set, so the tracking can be checked against what you actually did.") }
+                Section("Setup") {
+                    Picker("Playing hand", selection: $model.rightHanded) { Text("Right").tag(true); Text("Left").tag(false) }.pickerStyle(.segmented)
+                    Toggle("Use the front camera", isOn: $model.frontCamera)
+                    Toggle("Save video and skeleton for checking", isOn: $model.debugRecording)
+                }
+            }
+            .navigationTitle("Set details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .onChange(of: model.frontCamera) { _, _ in model.applyCamera() }
         }
     }
 }
 
 struct SummaryView: View {
     let summary: SessionSummary
-    let planned: Int
+    let label: SetLabel?
     let debugFolder: String?
     @Environment(\.dismiss) private var dismiss
+
+    private var countNote: String? {
+        guard let planned = label?.plannedReps, planned > 0 else { return nil }
+        if summary.reps == planned { return "All \(planned) planned reps were counted." }
+        return "You planned \(planned), so the count is off by \(abs(summary.reps - planned))."
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Section("This set") {
-                    row("Reps", "\(summary.reps)", planned > 0 ? "you planned \(planned)" : nil)
-                    row("Racket arm up before the hit", "\(fmt(summary.lead)) s", "pros \(fmt(ProRange.lead.lowerBound))–\(fmt(ProRange.lead.upperBound)) s (provisional)")
-                    row("How much that varies", "± \(fmt(summary.leadSpread)) s", "smaller is better")
-                    row("Elbow at the top", "\(fmt(summary.elbowTop, 0))°", "pros \(fmt(ProRange.elbowTop.lowerBound, 0))–\(fmt(ProRange.elbowTop.upperBound, 0))° (provisional)")
-                    row("Hand height at the top", fmt(summary.handHeight), "torso lengths from shoulder height")
-                    row("Deepest knee bend", "\(fmt(summary.kneeMin, 0))°", nil)
-                    if let s = summary.upBeforeFootShare { row("Arm up before the foot lands", "\(Int((s * 100).rounded()))% of reps", "aim for all of them") }
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(summary.reps == 1 ? "1 rep" : "\(summary.reps) reps").font(.system(size: 44, weight: .bold, design: .rounded))
+                        if let n = countNote { Text(n).foregroundStyle(.secondary) }
+                    }
+                    .padding(.vertical, 4)
+                }
+                if summary.reps > 0 {
+                    Section("Measured") {
+                        row("Racket arm up before the hit", "\(fmt(summary.lead)) s", "pros \(fmt(ProRange.lead.lowerBound))–\(fmt(ProRange.lead.upperBound)) s (provisional)")
+                        row("How much that varies", "± \(fmt(summary.leadSpread)) s", "smaller is better")
+                        row("Elbow at the top", "\(fmt(summary.elbowTop, 0))°", "pros \(fmt(ProRange.elbowTop.lowerBound, 0))–\(fmt(ProRange.elbowTop.upperBound, 0))° (provisional)")
+                        row("Hand height at the top", fmt(summary.handHeight), "torso lengths from shoulder height")
+                        row("Deepest knee bend", "\(fmt(summary.kneeMin, 0))°", nil)
+                        if let s = summary.upBeforeFootShare { row("Arm up before the foot lands", "\(Int((s * 100).rounded()))% of reps", "aim for all of them") }
+                    }
                 }
                 if let d = debugFolder {
-                    Section("Debug") { Text("Saved to Files › On My iPhone › Squash Coach › debug › \(d)").font(.footnote) }
+                    Section("Saved for checking") { Text("Files › On My iPhone › Squash Coach › debug › \(d)").font(.footnote) }
                 }
                 Section { Text("These numbers come from the phone's body tracking, without the racket. They are a first version and have not yet been checked against the offline analysis.").font(.footnote).foregroundStyle(.secondary) }
             }
             .navigationTitle("Set summary")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
     }
+
     private func row(_ title: String, _ value: String, _ note: String?) -> some View {
         HStack {
             VStack(alignment: .leading) { Text(title); if let n = note { Text(n).font(.caption).foregroundStyle(.secondary) } }

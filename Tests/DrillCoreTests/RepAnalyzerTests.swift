@@ -36,6 +36,14 @@ final class RepAnalyzerTests: XCTestCase {
         return out
     }
 
+    func testDemoLoopIsCountedRepByRep() {
+        // the app's demo mode and the screen tests rely on this scripted figure being counted correctly
+        let a = RepAnalyzer()
+        DemoPoses.loop(holds: [0.55, 0.45, 0.2, 0.5], fps: 30).forEach { a.add($0) }
+        XCTAssertEqual(a.reps.count, 4)
+        XCTAssertLessThan(a.reps[2].lead, a.reps[0].lead)   // the third rep is the late one
+    }
+
     func testCountsRepsAndMeasuresLead() {
         let a = RepAnalyzer()
         var events: [RepAnalyzer.Event] = []

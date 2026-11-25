@@ -18,8 +18,8 @@ targets:
       path: App/Info.plist
       properties:
         CFBundleDisplayName: Squash Coach
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSCameraUsageDescription: The camera watches your swing and measures it on this phone. Video is saved only when debug recording is on.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
@@ -29,8 +29,30 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.agarg21.squashcoach
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  SquashCoachUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: SquashCoach
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.agarg21.squashcoach.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+schemes:
+  SquashCoach:
+    build:
+      targets:
+        SquashCoach: all
+        SquashCoachUITests: [test]
+    test:
+      targets: [SquashCoachUITests]
