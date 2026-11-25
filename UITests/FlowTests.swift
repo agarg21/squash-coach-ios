@@ -11,6 +11,18 @@ final class FlowTests: XCTestCase {
         add(a)
     }
 
+    /// Starts a set. A tap that lands while a sheet is still sliding away is ignored on a slow simulator, so try again if the set has not started.
+    private func startSet(_ app: XCUIApplication) -> XCUIElement {
+        let count = app.staticTexts["repCount"]
+        let start = app.buttons["startSet"]
+        for _ in 0..<3 where !count.exists {
+            if start.exists && start.isHittable { start.tap() }
+            _ = count.waitForExistence(timeout: 10)
+        }
+        XCTAssertTrue(count.exists)
+        return count
+    }
+
     func testASetFromStartToProgress() {
         let app = XCUIApplication()
         app.launchArguments = ["-demo"]
@@ -21,20 +33,16 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(inView.waitForExistence(timeout: 10))
         shot("01-ready")
 
-        app.buttons["setDetails"].tap()
-        XCTAssertTrue(app.navigationBars["Set details"].waitForExistence(timeout: 5))
-        shot("02-set-details")
+        app.buttons["settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        shot("02-settings")
         app.buttons["Done"].tap()
-        XCTAssertTrue(app.navigationBars["Set details"].waitForNonExistence(timeout: 15))
+        XCTAssertTrue(app.navigationBars["Settings"].waitForNonExistence(timeout: 15))
 
-        // a tap that lands while the sheet is still sliding away is ignored on a slow simulator, so try again if the set has not started
-        let count = app.staticTexts["repCount"]
-        let start = app.buttons["startSet"]
-        for _ in 0..<3 where !count.exists {
-            if start.exists && start.isHittable { start.tap() }
-            _ = count.waitForExistence(timeout: 10)
-        }
-        XCTAssertTrue(count.exists)
+        app.buttons["flipCamera"].tap()
+        app.buttons["Forehand"].tap()
+
+        var count = startSet(app)
         expectation(for: NSPredicate(format: "label == %@", "3"), evaluatedWith: count)
         waitForExpectations(timeout: 40)
         shot("03-during-set")
@@ -48,5 +56,20 @@ final class FlowTests: XCTestCase {
         app.tabBars.buttons["Progress"].tap()
         XCTAssertTrue(app.navigationBars["Progress"].waitForExistence(timeout: 5))
         shot("05-progress")
+
+        // a second set, then share its recording (the last step, because the share sheet is left open)
+        app.tabBars.buttons["Drill"].tap()
+        count = startSet(app)
+        expectation(for: NSPredicate(format: "label != %@", "0"), evaluatedWith: count)
+        waitForExpectations(timeout: 40)
+        app.buttons["stopSet"].tap()
+        XCTAssertTrue(app.navigationBars["Set summary"].waitForExistence(timeout: 5))
+        let share = app.buttons["shareRecording"]
+        if !share.waitForExistence(timeout: 5) { app.swipeUp() }
+        XCTAssertTrue(share.waitForExistence(timeout: 10))
+        share.tap()
+        sleep(6)
+        shot("06-share")
+        XCTAssertEqual(app.state, .runningForeground)
     }
 }

@@ -52,7 +52,7 @@ struct SkeletonOverlay: View {
 struct DrillView: View {
     @EnvironmentObject var store: Store
     @StateObject private var model = DrillModel()
-    @State private var showDetails = false
+    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -67,21 +67,38 @@ struct DrillView: View {
             .padding()
         }
         .onAppear { model.startCamera() }
-        .sheet(isPresented: $showDetails) { SetDetailsView(model: model) }
+        .sheet(isPresented: $showSettings) { SettingsView(model: model) }
         .sheet(isPresented: Binding(get: { model.summary != nil }, set: { if !$0 { model.summary = nil } })) {
-            if let s = model.summary { SummaryView(summary: s, label: model.lastLabel, debugFolder: model.lastDebugFolder) }
+            if let s = model.summary { SummaryView(summary: s, recording: model.lastRecording) }
         }
     }
 
-    // Before a set: one line saying whether the phone can see the whole body.
+    private func circleButton(_ icon: String, id: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon).font(.system(size: 18, weight: .semibold)).foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(Color.black.opacity(0.55), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(id)
+    }
+
+    // Before a set: settings, whether the phone can see the whole body, and the camera flip button.
     private var readyHeader: some View {
-        Label(model.bodyInView ? "Whole body in view" : "Step back until I can see you head to feet",
-              systemImage: model.bodyInView ? "checkmark.circle.fill" : "figure.stand")
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .background(model.bodyInView ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
-            .accessibilityIdentifier("bodyStatus")
+        HStack(alignment: .center, spacing: 8) {
+            circleButton("gearshape.fill", id: "settings") { showSettings = true }
+            Spacer(minLength: 0)
+            Label(model.bodyInView ? "Whole body in view" : "Step back: head to feet in view",
+                  systemImage: model.bodyInView ? "checkmark.circle.fill" : "figure.stand")
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1).minimumScaleFactor(0.8)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14).padding(.vertical, 8)
+                .background(model.bodyInView ? Color.green.opacity(0.75) : Color.black.opacity(0.55), in: Capsule())
+                .accessibilityIdentifier("bodyStatus")
+            Spacer(minLength: 0)
+            circleButton("arrow.triangle.2.circlepath.camera.fill", id: "flipCamera") { model.flipCamera() }
+        }
     }
 
     // During a set: the count, and the last rep's number.
@@ -89,7 +106,7 @@ struct DrillView: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text("\(model.repCount)").font(.system(size: 84, weight: .bold, design: .rounded)).monospacedDigit()
                 .accessibilityIdentifier("repCount")
-            Text(model.plannedReps > 0 ? "of \(model.plannedReps) reps" : "reps").font(.title3.weight(.medium)).opacity(0.85)
+            Text(model.repCount == 1 ? "rep" : "reps").font(.title3.weight(.medium)).opacity(0.85)
             Spacer()
             if let r = model.lastRep {
                 VStack(alignment: .trailing, spacing: 2) {
@@ -113,39 +130,16 @@ struct DrillView: View {
         .accessibilityIdentifier("stopSet")
     }
 
-    private var setTitle: String {
-        let side = model.side == "forehand" ? "Forehand" : "Backhand"
-        return model.plannedReps > 0 ? "\(side) · \(model.plannedReps) reps" : side
-    }
-
-    private var setSubtitle: String {
-        let how: String = model.style == "normal" ? "Normal swings" : model.style.prefix(1).uppercased() + String(model.style.dropFirst())
-        var parts: [String] = [how]
-        parts.append(model.swingDirection == "across" ? "swing across the phone" : "swing away from the phone")
-        if model.racketInHand { parts.append("racket in hand") }
-        return parts.joined(separator: " · ")
-    }
-
-    // Before a set: what the set is (tap to change), and the start button.
+    // Before a set: which side, how to stand, and the start button.
     private var readyCard: some View {
         VStack(spacing: 12) {
-            Button { showDetails = true } label: {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(setTitle).font(.headline)
-                        Text(setSubtitle).font(.caption).opacity(0.8).multilineTextAlignment(.leading)
-                    }
-                    Spacer()
-                    Image(systemName: "slider.horizontal.3")
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16).padding(.vertical, 12)
-                .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 14))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("setDetails")
+            Picker("Side", selection: $model.side) { Text("Backhand").tag("backhand"); Text("Forehand").tag("forehand") }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("side")
+            Text("Stand facing the phone, about 3 metres back.")
+                .font(.footnote).foregroundStyle(.white.opacity(0.8))
             Button { model.start() } label: {
-                Text("Start set").font(.title2.bold()).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
+                Text("Start").font(.title2.bold()).foregroundStyle(.white).frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(Color.orange, in: RoundedRectangle(cornerRadius: 16))
             }
             .buttonStyle(.plain)
@@ -156,61 +150,54 @@ struct DrillView: View {
     }
 }
 
-/// Everything adjustable, kept off the main screen: what this set is, and how the phone is set up.
-struct SetDetailsView: View {
+/// The two things that are set once and left alone.
+struct SettingsView: View {
     @ObservedObject var model: DrillModel
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    Picker("Side", selection: $model.side) { Text("Backhand").tag("backhand"); Text("Forehand").tag("forehand") }.pickerStyle(.segmented)
-                    Stepper("Planned reps: \(model.plannedReps)", value: $model.plannedReps, in: 0...40)
-                    Picker("How", selection: $model.style) {
-                        Text("Normal swings").tag("normal")
-                        Text("Arm up late on purpose").tag("arm up late on purpose")
-                        Text("Standing tall on purpose").tag("standing tall on purpose")
-                    }
-                    Picker("Swing goes", selection: $model.swingDirection) {
-                        Text("Away from the phone").tag("away")
-                        Text("Across the phone").tag("across")
-                    }
-                    Toggle("Racket in hand", isOn: $model.racketInHand)
-                } header: { Text("This set") } footer: { Text("Saved with the set, so the tracking can be checked against what you actually did.") }
-                Section("Setup") {
+                Section("Playing hand") {
                     Picker("Playing hand", selection: $model.rightHanded) { Text("Right").tag(true); Text("Left").tag(false) }.pickerStyle(.segmented)
-                    Toggle("Use the front camera", isOn: $model.frontCamera)
-                    Toggle("Save video and skeleton for checking", isOn: $model.debugRecording)
+                }
+                Section {
+                    Toggle("Record each set", isOn: $model.debugRecording)
+                } footer: {
+                    Text("Saves the video and the skeleton the phone found, so the tracking can be checked. Recordings stay on this phone (the newest 30 are kept) until you share one from the set summary.")
                 }
             }
-            .navigationTitle("Set details")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .onChange(of: model.frontCamera) { _, _ in model.applyCamera() }
         }
     }
 }
 
+/// The system share sheet.
+struct ActivityView: UIViewControllerRepresentable {
+    let url: URL
+    func makeUIViewController(context: Context) -> UIActivityViewController { UIActivityViewController(activityItems: [url], applicationActivities: nil) }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+struct ShareItem: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 struct SummaryView: View {
     let summary: SessionSummary
-    let label: SetLabel?
-    let debugFolder: String?
+    let recording: URL?
     @Environment(\.dismiss) private var dismiss
-
-    private var countNote: String? {
-        guard let planned = label?.plannedReps, planned > 0 else { return nil }
-        return summary.reps == planned ? "All \(planned) planned reps were counted." : "You planned \(planned)."
-    }
+    @State private var packing = false
+    @State private var shareItem: ShareItem?
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(summary.reps == 1 ? "1 rep" : "\(summary.reps) reps").font(.system(size: 44, weight: .bold, design: .rounded))
-                        if let n = countNote { Text(n).foregroundStyle(.secondary) }
-                    }
-                    .padding(.vertical, 4)
+                    Text(summary.reps == 1 ? "1 rep" : "\(summary.reps) reps").font(.system(size: 44, weight: .bold, design: .rounded))
+                        .padding(.vertical, 4)
                 }
                 if summary.reps > 0 {
                     Section("Measured") {
@@ -222,14 +209,38 @@ struct SummaryView: View {
                         if let s = summary.upBeforeFootShare { row("Arm up before the foot lands", "\(Int((s * 100).rounded()))% of reps", "aim for all of them") }
                     }
                 }
-                if let d = debugFolder {
-                    Section("Saved for checking") { Text("Files › On My iPhone › Squash Coach › debug › \(d)").font(.footnote) }
+                if let dir = recording {
+                    Section {
+                        Button { share(dir) } label: {
+                            HStack {
+                                Label("Share this recording", systemImage: "square.and.arrow.up")
+                                Spacer()
+                                if packing { ProgressView() }
+                            }
+                        }
+                        .disabled(packing)
+                        .accessibilityIdentifier("shareRecording")
+                    } footer: {
+                        Text("The video and skeleton of this set in one file, for checking the tracking.")
+                    }
                 }
                 Section { Text("These numbers come from the phone's body tracking, without the racket. They are a first version and have not yet been checked against the offline analysis.").font(.footnote).foregroundStyle(.secondary) }
             }
             .navigationTitle("Set summary")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .sheet(item: $shareItem) { ActivityView(url: $0.url) }
+        }
+    }
+
+    private func share(_ dir: URL) {
+        packing = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let zipped = DebugRecorder.zip(dir)
+            DispatchQueue.main.async {
+                packing = false
+                if let z = zipped { shareItem = ShareItem(url: z) }
+            }
         }
     }
 
