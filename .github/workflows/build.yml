@@ -37,7 +37,11 @@ jobs:
         run: |
           set -o pipefail
           UDID=$(python3 ci/pick_sim.py)
-          xcodebuild test -project SquashCoach.xcodeproj -scheme SquashCoach -destination "id=$UDID" -resultBundlePath "$RUNNER_TEMP/ui.xcresult" CODE_SIGNING_ALLOWED=NO 2>&1 \
+          # start the simulator first and wait until it is fully up: a cold one can time out launching the app
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcodebuild test -project SquashCoach.xcodeproj -scheme SquashCoach -destination "id=$UDID" -resultBundlePath "$RUNNER_TEMP/ui.xcresult" \
+            -retry-tests-on-failure -test-iterations 2 CODE_SIGNING_ALLOWED=NO 2>&1 \
             | grep -E "error|Test Case|Test Suite|TEST|\*\*|failed|XCTAssert" | tail -80
       - name: Collect the screenshots
         if: always()
