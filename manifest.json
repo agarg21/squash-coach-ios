@@ -1,0 +1,68 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8EBAA496-5654-45BF-897F-3C4FD73935F1",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "26174581-FF8E-4309-852C-711CDD7C684A.png",
+        "isAssociatedWithFailure" : false,
+        "repetitionNumber" : 1,
+        "suggestedHumanReadableName" : "06-share_0_2FF5406A-F723-4497-981C-4AD3D54150B8.png",
+        "timestamp" : 1795619483.44
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8EBAA496-5654-45BF-897F-3C4FD73935F1",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "48A9FC97-FA23-4048-9DDD-C75D45ECF39D.png",
+        "isAssociatedWithFailure" : false,
+        "repetitionNumber" : 1,
+        "suggestedHumanReadableName" : "05-progress_0_85255DC7-F44C-4B3E-BC07-666F9BF4C0FE.png",
+        "timestamp" : 1795619461.421
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8EBAA496-5654-45BF-897F-3C4FD73935F1",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "261791F8-81BA-40E5-A19A-2590FF452FE6.png",
+        "isAssociatedWithFailure" : false,
+        "repetitionNumber" : 1,
+        "suggestedHumanReadableName" : "04-summary_0_C0859AF4-017D-48C1-8D0B-5E2D2F3B8285.png",
+        "timestamp" : 1795619449.252
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8EBAA496-5654-45BF-897F-3C4FD73935F1",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "BB005C68-6E63-4845-95DF-B2A4F5825336.png",
+        "isAssociatedWithFailure" : false,
+        "repetitionNumber" : 1,
+        "suggestedHumanReadableName" : "03-during-set_0_DE6F2BF7-0BC0-4026-BA8A-E0D4F5486C7A.png",
+        "timestamp" : 1795619445.309
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8EBAA496-5654-45BF-897F-3C4FD73935F1",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "96C0E3E2-7E49-4014-85B3-9FD1CA48F177.png",
+        "isAssociatedWithFailure" : false,
+        "repetitionNumber" : 1,
+        "suggestedHumanReadableName" : "02-settings_0_CE4D1FA4-9B48-47A1-8FC4-B1833AF4CDB6.png",
+        "timestamp" : 1795619423.35
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "8EBAA496-5654-45BF-897F-3C4FD73935F1",
+        "deviceName" : "iPhone 17",
+        "exportedFileName" : "A7AA3D4A-5E79-4738-835A-C31A8EE25B9D.png",
+        "isAssociatedWithFailure" : false,
+        "repetitionNumber" : 1,
+        "suggestedHumanReadableName" : "01-ready_0_720C30B6-0875-41BF-8DF4-52BC3AE4A9EE.png",
+        "timestamp" : 1795619419.118
+      }
+    ],
+    "testIdentifier" : "FlowTests/testASetFromStartToProgress()",
+    "testIdentifierURL" : "test://com.apple.xcode/SquashCoach/SquashCoachUITests/FlowTests/testASetFromStartToProgress"
+  }
+]
