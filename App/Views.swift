@@ -12,6 +12,7 @@ struct SquashCoachApp: App {
                 HistoryView().tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
             }
             .tint(.orange)
+            .preferredColorScheme(.dark)   // one dark look everywhere: the camera screen sets the tone
             .environmentObject(store)
         }
     }
@@ -55,9 +56,9 @@ struct DrillView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea(edges: .top)
-            if !AppMode.demo { CameraPreview(session: model.camera.session).ignoresSafeArea(edges: .top) }
-            SkeletonOverlay(joints: model.joints, mirrored: model.frontCamera).ignoresSafeArea(edges: .top)
+            Color.black.ignoresSafeArea()
+            if !AppMode.demo { CameraPreview(session: model.camera.session).ignoresSafeArea() }
+            SkeletonOverlay(joints: model.joints, mirrored: model.frontCamera).ignoresSafeArea()
             VStack(spacing: 12) {
                 if model.running { runningHeader } else { readyHeader }
                 Spacer()
@@ -198,8 +199,7 @@ struct SummaryView: View {
 
     private var countNote: String? {
         guard let planned = label?.plannedReps, planned > 0 else { return nil }
-        if summary.reps == planned { return "All \(planned) planned reps were counted." }
-        return "You planned \(planned), so the count is off by \(abs(summary.reps - planned))."
+        return summary.reps == planned ? "All \(planned) planned reps were counted." : "You planned \(planned)."
     }
 
     var body: some View {
